@@ -1,0 +1,2 @@
+export interface ReportRange { from?: Date; to?: Date; limit: number; }
+export interface ReportsRepository { summary(range: ReportRange): Promise<unknown>; sales(range: ReportRange): Promise<unknown[]>; orders(range: ReportRange): Promise<unknown[]>; inventory(range: ReportRange): Promise<unknown[]>; returns(range: ReportRange): Promise<unknown[]>; activity(range: ReportRange): Promise<unknown[]>; }

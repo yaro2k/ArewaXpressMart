@@ -1,0 +1,7 @@
+import { Router, type NextFunction, type Request, type Response } from 'express';
+import type { AuthService } from '../../identity/application/AuthService.js';
+import { requireAuthentication, requirePermission } from '../../../shared/presentation/auth.js';
+import type { ReportsService } from '../application/ReportsService.js';
+import { reportQuerySchema } from './report.schemas.js';
+const asyncRoute = (handler: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction): void => { void handler(req, res).catch(next); };
+export function createReportsRouter(auth: AuthService, service: ReportsService): Router { const router = Router(); router.use(requireAuthentication(auth), requirePermission('report:read')); const query = (req: Request) => reportQuerySchema.parse(req.query); router.get('/summary', asyncRoute(async (req, res) => res.json({ data: await service.summary(query(req)) }))); router.get('/sales', asyncRoute(async (req, res) => res.json({ data: await service.sales(query(req)) }))); router.get('/orders', asyncRoute(async (req, res) => res.json({ data: await service.orders(query(req)) }))); router.get('/inventory', asyncRoute(async (req, res) => res.json({ data: await service.inventory(query(req)) }))); router.get('/returns', asyncRoute(async (req, res) => res.json({ data: await service.returns(query(req)) }))); router.get('/activity', asyncRoute(async (req, res) => res.json({ data: await service.activity(query(req)) }))); return router; }

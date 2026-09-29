@@ -1,0 +1,19 @@
+aws_region = "eu-west-1"
+environment = "staging"
+project_name = "ArewaExpressMart"
+vpc_cidr = "10.40.0.0/16"
+availability_zones = ["eu-west-1a", "eu-west-1b"]
+public_subnet_cidrs = ["10.40.0.0/20", "10.40.16.0/20"]
+app_subnet_cidrs = ["10.40.32.0/20", "10.40.48.0/20"]
+data_subnet_cidrs = ["10.40.64.0/20", "10.40.80.0/20"]
+database_name = "arewaexpressmart"
+database_engine_version = "17"
+database_instance_class = "db.t4g.micro"
+database_allocated_storage_gb = 20
+database_backup_retention_days = 7
+ecs_cpu = 512
+ecs_memory = 1024
+ecs_desired_count = 1
+container_port = 4000
+domain_name = ""
+# Never put passwords, tokens, provider keys, or DATABASE_URL here.

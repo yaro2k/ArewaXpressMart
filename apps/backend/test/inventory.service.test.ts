@@ -1,0 +1,10 @@
+import { describe, expect, it, vi } from 'vitest';
+import { InventoryService } from '../src/modules/inventory/application/InventoryService.js';
+import type { InventoryRepository } from '../src/modules/inventory/domain/InventoryRepository.js';
+const userId = '550e8400-e29b-41d4-a716-446655440000'; const warehouseId = '660e8400-e29b-41d4-a716-446655440000'; const variantId = '770e8400-e29b-41d4-a716-446655440000';
+function repository(overrides: Partial<InventoryRepository> = {}): InventoryRepository { return { listForUser: async () => [], findWarehouseContext: async () => ({ userId, verificationStatus: 'VERIFIED', storeStatus: 'ACTIVE' }), adjust: async () => ({ id: 'movement-1' }), ...overrides }; }
+describe('InventoryService', () => {
+  it('adjusts stock only for a verified warehouse owner', async () => { const adjust = vi.fn(async () => ({ id: 'movement-1' })); const service = new InventoryService(repository({ adjust })); await expect(service.adjust(userId, { warehouseId, productVariantId: variantId, quantityDelta: 3, referenceKey: 'manual-receipt-2026-001' })).resolves.toEqual({ id: 'movement-1' }); expect(adjust).toHaveBeenCalledWith({ userId, warehouseId, productVariantId: variantId, quantityDelta: 3, referenceKey: 'manual-receipt-2026-001' }); });
+  it('rejects another seller’s warehouse', async () => { const service = new InventoryService(repository({ findWarehouseContext: async () => ({ userId: 'other-user', verificationStatus: 'VERIFIED', storeStatus: 'ACTIVE' }) })); await expect(service.adjust(userId, { warehouseId, productVariantId: variantId, quantityDelta: 3, referenceKey: 'manual-receipt-2026-001' })).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' }); });
+  it('rejects unverified sellers', async () => { const service = new InventoryService(repository({ findWarehouseContext: async () => ({ userId, verificationStatus: 'PENDING', storeStatus: 'ACTIVE' }) })); await expect(service.adjust(userId, { warehouseId, productVariantId: variantId, quantityDelta: 3, referenceKey: 'manual-receipt-2026-001' })).rejects.toMatchObject({ status: 403, code: 'SELLER_NOT_VERIFIED' }); });
+});

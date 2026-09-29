@@ -1,0 +1,1 @@
+import { describe, expect, it } from 'vitest'; import { reportQuerySchema } from '../src/modules/reports/presentation/report.schemas.js'; describe('reportQuerySchema', () => { it('defaults limit', () => expect(reportQuerySchema.parse({}).limit).toBe(100)); it('rejects oversized limits', () => expect(() => reportQuerySchema.parse({ limit: 201 })).toThrow()); });

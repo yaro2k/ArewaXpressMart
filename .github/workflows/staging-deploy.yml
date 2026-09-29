@@ -1,0 +1,176 @@
+name: Staging Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Enable AWS deployment after staging infrastructure and approvals are configured"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: arewaexpressmart-staging-deployment
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+  ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+  API_TASK_DEFINITION_FAMILY: ${{ vars.API_TASK_DEFINITION_FAMILY }}
+  MIGRATION_TASK_DEFINITION: ${{ vars.MIGRATION_TASK_DEFINITION }}
+  PRIVATE_SUBNET_IDS: ${{ vars.PRIVATE_SUBNET_IDS }}
+  API_SECURITY_GROUP_ID: ${{ vars.API_SECURITY_GROUP_ID }}
+  E2E_BASE_URL: ${{ vars.E2E_BASE_URL }}
+
+jobs:
+  package:
+    name: Build immutable backend image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: apps/backend
+          file: apps/backend/Dockerfile
+          push: false
+          tags: arewaxpressmart/backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy staging (explicitly gated)
+    needs: package
+    if: ${{ inputs.deploy == true }}
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for value in AWS_DEPLOYMENT_ROLE_ARN AWS_REGION ECR_REPOSITORY ECS_CLUSTER ECS_SERVICE API_TASK_DEFINITION_FAMILY MIGRATION_TASK_DEFINITION PRIVATE_SUBNET_IDS API_SECURITY_GROUP_ID E2E_BASE_URL; do
+            if [[ -z "${!value:-}" ]]; then
+              echo "Missing required staging environment variable: $value" >&2
+              exit 1
+            fi
+          done
+
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-staging-${{ github.run_id }}
+
+      - name: Login to staging ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push immutable image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          IMAGE_URI="$REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker build --file apps/backend/Dockerfile --tag "$IMAGE_URI" apps/backend
+          docker push "$IMAGE_URI"
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+
+      - name: Register API task definition revision
+        id: task_definition
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition \
+            --task-definition "$API_TASK_DEFINITION_FAMILY" \
+            --query taskDefinition \
+            --output json > /tmp/current-task-definition.json
+          jq --arg image "$IMAGE_URI" \
+            'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy) | .containerDefinitions[0].image = $image' \
+            /tmp/current-task-definition.json > /tmp/new-task-definition.json
+          API_TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file:///tmp/new-task-definition.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "API_TASK_DEFINITION_ARN=$API_TASK_DEFINITION_ARN" >> "$GITHUB_ENV"
+          echo "PREVIOUS_TASK_DEFINITION_ARN=$(jq -r '.taskDefinitionArn' /tmp/current-task-definition.json)" >> "$GITHUB_ENV"
+
+      - name: Run Prisma migration task
+        id: migration
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition \
+            --task-definition "$MIGRATION_TASK_DEFINITION" \
+            --query taskDefinition \
+            --output json > /tmp/current-migration-definition.json
+          jq --arg image "$IMAGE_URI" \
+            'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy) | .containerDefinitions[0].image = $image' \
+            /tmp/current-migration-definition.json > /tmp/new-migration-definition.json
+          MIGRATION_TASK_DEFINITION_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file:///tmp/new-migration-definition.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          IFS=',' read -ra SUBNETS <<< "$PRIVATE_SUBNET_IDS"
+          SUBNET_JSON=$(printf '"%s",' "${SUBNETS[@]}")
+          SUBNET_JSON="[${SUBNET_JSON%,}]"
+          TASK_ARN=$(aws ecs run-task \
+            --cluster "$ECS_CLUSTER" \
+            --task-definition "$MIGRATION_TASK_DEFINITION_ARN" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=$SUBNET_JSON,securityGroups=[\"$API_SECURITY_GROUP_ID\"],assignPublicIp=DISABLED}" \
+            --query 'tasks[0].taskArn' --output text)
+          if [[ -z "$TASK_ARN" || "$TASK_ARN" == "None" ]]; then
+            echo "Migration task did not start" >&2
+            exit 1
+          fi
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN"
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN" --query 'tasks[0].containers[0].exitCode' --output text)
+          if [[ "$EXIT_CODE" != "0" ]]; then
+            echo "Migration task failed with exit code $EXIT_CODE" >&2
+            exit 1
+          fi
+
+      - name: Update staging ECS service
+        run: |
+          set -euo pipefail
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$API_TASK_DEFINITION_ARN" \
+            --force-new-deployment \
+            --query 'service.serviceName' --output text
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
+
+      - name: Verify HTTPS readiness
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 15 "$E2E_BASE_URL/health/ready"
+
+      - name: Run read-only E2E smoke tests
+        working-directory: apps/backend
+        env:
+          E2E_BASE_URL: ${{ env.E2E_BASE_URL }}
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run test:e2e
+
+      - name: Roll back API task definition after failed deployment
+        if: ${{ failure() && env.PREVIOUS_TASK_DEFINITION_ARN != '' && steps.migration.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" \
+            --service "$ECS_SERVICE" \
+            --task-definition "$PREVIOUS_TASK_DEFINITION_ARN" \
+            --force-new-deployment
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"

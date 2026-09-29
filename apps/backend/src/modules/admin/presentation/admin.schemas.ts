@@ -1,0 +1,10 @@
+import { z } from 'zod';
+export const userStatusSchema = z.object({ status: z.enum(['ACTIVE', 'SUSPENDED', 'DEACTIVATED']), reason: z.string().trim().min(3).max(500) }).strict();
+export const userRolesSchema = z.object({ roleCodes: z.array(z.enum(['CUSTOMER', 'SELLER', 'ADMIN'])).min(1).max(3).refine((roles) => new Set(roles).size === roles.length, 'Roles must be unique.') }).strict();
+export const sellerReviewSchema = z.object({ verificationStatus: z.enum(['PENDING', 'VERIFIED', 'REJECTED', 'SUSPENDED']), reason: z.string().trim().max(500).optional() }).strict();
+export const productModerationSchema = z.object({ status: z.enum(['DRAFT', 'PENDING_REVIEW', 'ACTIVE', 'ARCHIVED', 'REJECTED']), reason: z.string().trim().max(500).optional() }).strict();
+const slug = z.string().trim().toLowerCase().min(3).max(160).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+export const categoryCreateSchema = z.object({ name: z.string().trim().min(2).max(120), slug, parentCategoryId: z.string().uuid().nullable().optional() }).strict();
+export const categoryUpdateSchema = categoryCreateSchema.partial().extend({ isActive: z.boolean().optional() }).strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one field.');
+export const brandCreateSchema = z.object({ name: z.string().trim().min(2).max(120), slug, description: z.string().trim().max(1000).nullable().optional() }).strict();
+export const brandUpdateSchema = brandCreateSchema.partial().strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one field.');

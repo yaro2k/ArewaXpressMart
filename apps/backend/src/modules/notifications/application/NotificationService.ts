@@ -1,0 +1,3 @@
+import { AppError } from '../../../shared/domain/AppError.js';
+import type { NotificationRepository } from '../domain/NotificationRepository.js';
+export class NotificationService { constructor(private readonly repository: NotificationRepository) {} list(userId: string) { return this.repository.listForUser(userId); } async markRead(userId: string, id: string) { const n = await this.repository.markRead(userId, id); if (!n) throw new AppError(404, 'NOT_FOUND', 'Notification not found.'); return n; } listAdmin() { return this.repository.listAdmin(); } retry(id: string, key: string) { return this.repository.retry(id, key); } }

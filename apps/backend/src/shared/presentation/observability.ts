@@ -1,0 +1,2 @@
+import { randomUUID } from 'node:crypto'; import type { NextFunction, Request, Response } from 'express'; import { recordHttpRequest } from '../observability/metrics.js';
+export function requestObservability(req: Request, res: Response, next: NextFunction): void { const supplied = req.header('x-request-id'); const requestId = supplied && /^[A-Za-z0-9._-]{1,128}$/.test(supplied) ? supplied : randomUUID(); res.setHeader('x-request-id', requestId); res.on('finish', () => recordHttpRequest(req.method, res.statusCode)); next(); }

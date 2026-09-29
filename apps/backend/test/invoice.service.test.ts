@@ -1,0 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
+import { InvoiceService } from '../src/modules/invoices/application/InvoiceService.js';
+import type { InvoiceRepository } from '../src/modules/invoices/domain/InvoiceRepository.js';
+function repository(overrides: Partial<InvoiceRepository> = {}): InvoiceRepository { return { findCustomerInvoice: async () => ({ id: 'invoice-1' }), listInvoices: async () => [], issueInvoice: async () => ({ id: 'invoice-1' }), ...overrides }; }
+describe('InvoiceService', () => { it('protects customer invoice reads', async () => { const service = new InvoiceService(repository({ findCustomerInvoice: async () => null })); await expect(service.getCustomerInvoice('user-1', 'order-1')).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' }); }); it('issues invoices through the repository boundary', async () => { const issueInvoice = vi.fn(async () => ({ id: 'invoice-1' })); const service = new InvoiceService(repository({ issueInvoice })); await expect(service.issue('order-1')).resolves.toEqual({ id: 'invoice-1' }); expect(issueInvoice).toHaveBeenCalledWith('order-1'); }); });
