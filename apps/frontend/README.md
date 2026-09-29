@@ -1,6 +1,6 @@
 # ArewaExpressMart customer frontend
 
-This React + Vite application is the customer shopping foundation. It uses the authoritative backend at `apps/backend` and currently covers authentication, email verification, public catalog browsing, and the authenticated cart slice. Checkout, orders, payments, returns, invoices, notifications, seller, and admin interfaces remain future milestones.
+This React + Vite application is the customer shopping foundation. It uses the authoritative backend at `apps/backend` and covers authentication, email verification, public catalog browsing, and carts for anonymous and authenticated customers. The browser keeps the anonymous cart in an HttpOnly backend cookie; a successful login automatically merges it into the authenticated cart. If current availability prevents a merge, the signed-in customer can resolve that cookie-bound cart in `/cart` and retry without logging out. Expired identifiers return an empty cart and rotate to a fresh token only when a new anonymous cart is created. Checkout, orders, payments, returns, invoices, notifications, seller, and admin interfaces remain future milestones.
 
 ## Local development
 

@@ -1,17 +1,11 @@
-import { AppError } from '../../../shared/domain/AppError.js';
-import type { CartRepository } from '../domain/CartRepository.js';
+import type { CartOwner, CartRepository } from '../domain/CartRepository.js';
 
 export class CartService {
   constructor(private readonly repository: CartRepository) {}
 
-  getCart(userId: string) { return this.repository.getOrCreateCart(userId); }
-  addItem(userId: string, input: { productVariantId: string; quantity: number }) { return this.repository.addItem(userId, input); }
-  async updateItem(userId: string, cartItemId: string, quantity: number) { await this.assertItemOwner(userId, cartItemId); return this.repository.updateItem(cartItemId, quantity); }
-  async deleteItem(userId: string, cartItemId: string) { await this.assertItemOwner(userId, cartItemId); return this.repository.deleteItem(cartItemId); }
-
-  private async assertItemOwner(userId: string, cartItemId: string): Promise<void> {
-    const item = await this.repository.findCartItemOwner(cartItemId);
-    if (!item) throw new AppError(404, 'NOT_FOUND', 'Cart item not found.');
-    if (item.userId !== userId) throw new AppError(403, 'FORBIDDEN', 'You do not own this cart item.');
-  }
+  getCart(owner: CartOwner) { return this.repository.getCart(owner); }
+  addItem(owner: CartOwner, input: { productVariantId: string; quantity: number; expiresAt?: Date }) { return this.repository.addItem(owner, input); }
+  updateItem(owner: CartOwner, cartItemId: string, quantity: number) { return this.repository.updateItem(owner, cartItemId, quantity); }
+  deleteItem(owner: CartOwner, cartItemId: string) { return this.repository.deleteItem(owner, cartItemId); }
+  mergeAnonymousCart(userId: string, anonymousTokenHash?: string) { return this.repository.mergeAnonymousCart(userId, anonymousTokenHash); }
 }

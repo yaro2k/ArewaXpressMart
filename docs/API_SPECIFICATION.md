@@ -76,11 +76,13 @@ All collections accept bounded `limit` (1–100), `cursor`, and documented filte
 
 | Method & endpoint | Request | Success response | Auth / authorization | Validation and possible errors |
 |---|---|---|---|---|
-| `GET /cart` | anonymous cart cookie or bearer | `200 {data:cart}` | Public/Bearer | Resolves one owner form. `401` only when an invalid bearer is sent. |
+| `GET /cart` | anonymous cart cookie or bearer | `200 {data:cart}` | Public/Bearer | Resolves one owner form. Expired/unknown anonymous identifiers return an empty cart and do not create a new cart. `401` only when an invalid bearer is sent. |
 | `POST /cart/items` | `{productVariantId,quantity}` | `201 {data:cart}` | Public/Bearer | UUID; quantity 1–999; active SKU. `404`, `422 INSUFFICIENT_INVENTORY`. |
 | `PATCH /cart/items/:cartItemId` | `{quantity}` | `200 {data:cart}` | Public/Bearer, cart owner | Positive bounded quantity. `403`, `404`, `422`. |
 | `DELETE /cart/items/:cartItemId` | — | `204` | Public/Bearer, cart owner | `403`, `404`. |
-| `POST /cart/merge` | anonymous cart cookie | `200 {data:cart}` | Bearer, self | Merges valid lines; availability is rechecked. `422 INSUFFICIENT_INVENTORY`. |
+| `GET /cart/recovery` | anonymous cart cookie | `200 {data:cart}` | Bearer, self + cookie possession | Reads only the request cookie's unmerged anonymous cart after a failed merge; never selects an arbitrary cart. |
+| `PATCH/DELETE /cart/recovery/items/:cartItemId` | anonymous cart cookie | cart / `204` | Bearer, self + cookie ownership | Narrow recovery-only mutation for the same cookie cart; normal authenticated cart endpoints remain separate. `403`, `404`, `422`. |
+| `POST /cart/merge` | anonymous cart cookie | `200 {data:cart}` | Bearer, self | Transactionally merges the request cookie cart into the caller's cart, reprices/revalidates every line, then clears the cookie. A failed merge preserves the cookie cart for `/cart/recovery`; successful retries are safe. `404 NOT_FOUND`, `422 INSUFFICIENT_INVENTORY`, `PRICE_UNAVAILABLE`, `CURRENCY_MISMATCH`, `CART_QUANTITY_LIMIT`. |
 | `GET /wishlists` | — | `200 {data:[wishlist]}` | Bearer, self | `401`. |
 | `POST /wishlists` | `{name,isDefault?}` | `201 {data:wishlist}` | Bearer, self | Name 1–80 chars; one default. `409 CONFLICT`. |
 | `GET /wishlists/:wishlistId/items` | pagination | `200 {data:[productCard],meta}` | Bearer, owner | `403`, `404`. |

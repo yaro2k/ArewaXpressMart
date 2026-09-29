@@ -4,38 +4,23 @@ import type { CartRepository } from '../src/modules/cart/domain/CartRepository.j
 
 const userId = '550e8400-e29b-41d4-a716-446655440000';
 const itemId = '660e8400-e29b-41d4-a716-446655440000';
-
-function repository(overrides: Partial<CartRepository> = {}): CartRepository {
-  return {
-    getOrCreateCart: async () => ({ id: 'cart-1', items: [] }),
-    addItem: async () => ({ id: 'cart-1', items: [] }),
-    findCartItemOwner: async () => ({ userId }),
-    updateItem: async () => ({ id: 'cart-1', items: [] }),
-    deleteItem: async () => undefined,
-    ...overrides,
-  };
-}
+const anonymous = { kind: 'anonymous' as const, tokenHash: 'a'.repeat(64) };
+function repository(overrides: Partial<CartRepository> = {}): CartRepository { return { getCart: async () => ({ id: 'cart-1', items: [] }), addItem: async () => ({ id: 'cart-1', items: [] }), updateItem: async () => ({ id: 'cart-1', items: [] }), deleteItem: async () => undefined, mergeAnonymousCart: async () => ({ id: 'cart-1', items: [] }), ...overrides }; }
 
 describe('CartService', () => {
-  it('updates a cart item only after proving its cart belongs to the caller', async () => {
-    const updateItem = vi.fn(async () => ({ id: 'cart-1', items: [] }));
-    const service = new CartService(repository({ updateItem }));
-
-    await expect(service.updateItem(userId, itemId, 3)).resolves.toEqual({ id: 'cart-1', items: [] });
-    expect(updateItem).toHaveBeenCalledWith(itemId, 3);
+  it('passes authenticated ownership context to cart mutations', async () => {
+    const updateItem = vi.fn(async () => ({ id: 'cart-1', items: [] })); const service = new CartService(repository({ updateItem }));
+    await expect(service.updateItem({ kind: 'authenticated', userId }, itemId, 3)).resolves.toEqual({ id: 'cart-1', items: [] });
+    expect(updateItem).toHaveBeenCalledWith({ kind: 'authenticated', userId }, itemId, 3);
   });
-
-  it('does not disclose or modify another customer’s cart item', async () => {
-    const updateItem = vi.fn();
-    const service = new CartService(repository({ findCartItemOwner: async () => ({ userId: 'other-user' }), updateItem }));
-
-    await expect(service.updateItem(userId, itemId, 3)).rejects.toMatchObject({ status: 403, code: 'FORBIDDEN' });
-    expect(updateItem).not.toHaveBeenCalled();
+  it('passes opaque anonymous ownership context without exposing a user identity', async () => {
+    const addItem = vi.fn(async () => ({ id: 'cart-1', items: [] })); const service = new CartService(repository({ addItem }));
+    await service.addItem(anonymous, { productVariantId: userId, quantity: 2, expiresAt: new Date('2026-10-01') });
+    expect(addItem).toHaveBeenCalledWith(anonymous, expect.objectContaining({ quantity: 2 }));
   });
-
-  it('returns not found for a missing cart item', async () => {
-    const service = new CartService(repository({ findCartItemOwner: async () => null }));
-
-    await expect(service.deleteItem(userId, itemId)).rejects.toMatchObject({ status: 404, code: 'NOT_FOUND' });
+  it('delegates merge using only the authenticated user and anonymous token hash', async () => {
+    const mergeAnonymousCart = vi.fn(async () => ({ id: 'cart-1', items: [] })); const service = new CartService(repository({ mergeAnonymousCart }));
+    await service.mergeAnonymousCart(userId, anonymous.tokenHash);
+    expect(mergeAnonymousCart).toHaveBeenCalledWith(userId, anonymous.tokenHash);
   });
 });

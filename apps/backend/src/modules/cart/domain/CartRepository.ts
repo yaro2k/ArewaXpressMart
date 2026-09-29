@@ -1,9 +1,9 @@
-export interface CartItemOwner { userId: string; }
+export type CartOwner = { kind: 'authenticated'; userId: string } | { kind: 'anonymous'; tokenHash: string };
 
 export interface CartRepository {
-  getOrCreateCart(userId: string): Promise<unknown>;
-  addItem(userId: string, input: { productVariantId: string; quantity: number }): Promise<unknown>;
-  findCartItemOwner(cartItemId: string): Promise<CartItemOwner | null>;
-  updateItem(cartItemId: string, quantity: number): Promise<unknown>;
-  deleteItem(cartItemId: string): Promise<void>;
+  getCart(owner: CartOwner): Promise<unknown>;
+  addItem(owner: CartOwner, input: { productVariantId: string; quantity: number; expiresAt?: Date }): Promise<unknown>;
+  updateItem(owner: CartOwner, cartItemId: string, quantity: number): Promise<unknown>;
+  deleteItem(owner: CartOwner, cartItemId: string): Promise<void>;
+  mergeAnonymousCart(userId: string, anonymousTokenHash?: string): Promise<unknown>;
 }

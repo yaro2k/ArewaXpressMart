@@ -66,7 +66,7 @@ A seller profile belongs to exactly one user; a seller may operate stores. A sto
 
 | Table | Important columns | Purpose |
 |---|---|---|
-| `cart` | `user_id` nullable, `anonymous_token_hash` nullable, `currency`, `expires_at` | Customer or anonymous cart; check enforces exactly one owner form. |
+| `cart` | `user_id` nullable, `anonymous_token_hash` nullable unique, `currency`, `expires_at` | Customer or anonymous cart; check enforces exactly one owner form. Anonymous tokens are stored only as hashes and expire. |
 | `cart_item` | `cart_id`, `product_variant_id`, `quantity`, `unit_price_minor` | Cart line; unique `(cart_id, product_variant_id)`. |
 | `wishlist` | `user_id`, `name`, `is_default` | A named user wishlist. |
 | `wishlist_item` | `wishlist_id`, `product_id` | Wishlist-to-product junction; unique pair. |
@@ -264,8 +264,8 @@ erDiagram
 ## Integrity, indexes, and implementation notes
 
 - Foreign keys are `RESTRICT` for financial history and `CASCADE` only for pure join rows such as `product_category`; use `SET NULL` for optional historical catalog references.
-- Check constraints enforce non-negative quantities/totals, `reserved_qty <= on_hand_qty`, ratings `1..5`, valid coupon amount/percentage shape, `starts_at < ends_at`, and a cart's one-owner rule.
-- Use partial unique indexes for one default address per user/type, one current variant price per currency, and one active anonymous cart token.
+- Check constraints enforce non-negative quantities/totals, `reserved_qty <= on_hand_qty`, ratings `1..5`, valid coupon amount/percentage shape, `starts_at < ends_at`, and a cart's one-owner rule. Cart and merge availability checks do not reserve inventory; checkout reservation remains separate follow-up work.
+- Use partial unique indexes for one default address per user/type and one current variant price per currency. Anonymous cart token hashes use a nullable unique index; expiry uses a schema-compatible `expires_at` index.
 - Index all FK columns. Add composite indexes for `product(store_id, status_id)`, `product_category(category_id, product_id)`, `inventory(product_variant_id, warehouse_id)`, `order(user_id, created_at desc)`, `order(status_id, created_at)`, `shipment(tracking_number)`, and `payment(provider_id, provider_reference)`.
 - Use transactions with row locking or conditional updates for inventory reservations, coupon redemption limits, payment transitions, and return quantities. The service layer must still perform authorization and workflow validation; constraints protect against concurrent or faulty callers.
 - Keep `audit_log` and `outbox_event` as cross-cutting append-only tables: `audit_log(actor_user_id, action, entity_type, entity_id, before_data, after_data, occurred_at)` and `outbox_event(aggregate_type, aggregate_id, event_type, payload, occurred_at, published_at)`.

@@ -336,13 +336,17 @@ model ProductImage {
 }
 
 model Cart {
-  id        String     @id @default(uuid()) @db.Uuid
-  userId    String     @unique @db.Uuid
-  currency  String     @default("NGN") @db.Char(3)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     CartItem[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id                 String     @id @default(uuid()) @db.Uuid
+  userId             String?    @unique @db.Uuid
+  anonymousTokenHash String?    @unique
+  currency           String     @default("NGN") @db.Char(3)
+  expiresAt          DateTime?
+  user               User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items              CartItem[]
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  @@index([expiresAt])
 }
 
 model CartItem {
