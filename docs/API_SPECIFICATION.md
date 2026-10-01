@@ -95,19 +95,19 @@ All collections accept bounded `limit` (1–100), `cursor`, and documented filte
 
 ## Checkout, orders, shipping, payments, returns, invoices
 
-The customer address flow uses the read-only reference endpoints `GET /locations/countries`, `GET /locations/states?countryId=<uuid>`, and `GET /locations/cities?stateProvinceId=<uuid>`. Checkout currently accepts only `{shippingAddressId,billingAddressId?}`; shipping methods, coupons, and payment-provider parameters remain deferred from the implemented contract.
+The customer address flow uses the read-only reference endpoints `GET /locations/countries`, `GET /locations/states?countryId=<uuid>`, and `GET /locations/cities?stateProvinceId=<uuid>`. Shipping is configured as an internal store/city policy: checkout has one selected rate per store represented in the authenticated customer's cart. The browser never submits a cart ID, shipping amount, currency, carrier text, or total.
 
 Customer post-purchase reads are available through `GET /orders`, `GET /orders/:orderId`, `GET /orders/:orderId/shipments`, `GET /orders/:orderId/invoice`, `GET /returns`, `GET /returns/:returnId`, and `GET/PATCH /me/notifications`. These remain ownership-protected and expose structured data only; invoice PDF generation and live carrier tracking are not implemented.
 
 | Method & endpoint | Request | Success response | Auth / authorization | Validation and possible errors |
 |---|---|---|---|---|
-| `POST /checkout/quote` | `{cartId?,shippingAddressId,couponCode?,shippingMethodId?}` | `200 {data:{lines,totals,shippingOptions}}` | Bearer, cart/address owner | Address/cart ownership; all lines saleable. `404`, `422 INSUFFICIENT_INVENTORY`, `COUPON_INELIGIBLE`. |
-| `POST /checkout` | `{shippingAddressId,billingAddressId?}` + `Idempotency-Key` | `201 {data:order}` | Bearer, self | Requotes and locks stock transactionally. `409 CONFLICT`, `422 INSUFFICIENT_INVENTORY`. |
+| `POST /checkout/shipping-options` | `{shippingAddressId}` | `200 {data:{currency,shippingAddress,groups:[{store,options}]}}` | Bearer, self | Resolves the principal's cart and an owned address. Each option is an active configured store/city rate. `422 EMPTY_CART`, `SHIPPING_UNAVAILABLE`. |
+| `POST /checkout/quote` | `{shippingAddressId,billingAddressId?,shippingSelections:[{storeId,shippingRateId}]}` | `200 {data:{lines,shippingSelections,totals}}` | Bearer, self | Exactly one active rate for every cart store; server recalculates prices and shipping. `404`, `422 SHIPPING_SELECTION_REQUIRED`, `INVALID_SHIPPING_SELECTION`, `SHIPPING_CURRENCY_MISMATCH`. |
+| `POST /checkout` | Same quote payload + `Idempotency-Key` | `201 {data:order}` | Bearer, self | Revalidates current configuration, snapshots each store selection, and creates one idempotent order. `409 CHECKOUT_CONFLICT`; it does not reserve inventory at checkout. |
 | `GET /orders` | `status?,cursor?,limit?` | `200 {data:[orderSummary],meta}` | Bearer, self | Allow-listed status. |
 | `GET /orders/:orderId` | — | `200 {data:orderDetail}` | Bearer, order owner or `order:read:any` | `403`, `404`. |
 | `POST /orders/:orderId/cancel` | `{reason?}` | `200 {data:order}` | Bearer, order owner or `order:manage:any` | Only cancellable state and unshipped quantities. `409 INVALID_STATE`; refund may be pending. |
 | `GET /orders/:orderId/shipments` | — | `200 {data:[shipment]}` | Bearer, owner or `order:read:any` | `403`, `404`. |
-| `GET /shipping/methods` | `addressId,cartId?` | `200 {data:[shippingMethodQuote]}` | Bearer, address/cart owner | Valid serviceable address and cart. `422 SHIPPING_UNAVAILABLE`. |
 | `POST /orders/:orderId/payments` | `{provider:"PAYSTACK"}` + `Idempotency-Key` | `201 {data:{paymentId,orderId,provider,status,providerReference,authorizationUrl?}}` | Bearer, order owner | Amount, currency, email, and reference are server-derived. `400`, `403`, `404`, `409`, `502`. Paystack initialization returns hosted checkout data when configured. |
 | `GET /payments/:paymentId` | — | `200 {data:payment}` | Bearer, payment/order owner or `payment:read:any` | `403`, `404`. |
 | `POST /webhooks/paystack` | Raw Paystack JSON body + `x-paystack-signature` | `204` | Paystack HMAC signature | Raw-body HMAC-SHA512, event deduplication, provider verification, amount/currency/reference matching. `400`, `401 INVALID_SIGNATURE`, `404`, `422 PAYMENT_MISMATCH`. |
@@ -141,6 +141,7 @@ Customer post-purchase reads are available through `GET /orders`, `GET /orders/:
 | `GET /seller/orders` | filters/pagination | `200 {data:[sellerOrderLine],meta}` | Bearer, seller owner | Only own store order items. `403`. |
 | `POST /seller/shipments` | `{orderId,warehouseId,shippingMethodId,items:[{orderItemId,quantity}],trackingNumber?}` | `201 {data:shipment}` | Bearer, fulfillment owner | Only owned, paid, unshipped quantities; warehouse stock. `403`, `409`, `422`. |
 | `PATCH /seller/shipments/:shipmentId/status` | `{status,trackingNumber?,location?,details?}` | `200 {data:shipment}` | Bearer, shipment's store owner | Legal status transition. `403`, `409 INVALID_STATE`. |
+| `GET/POST/PATCH /admin/shipping/carriers`, `/methods`, `/rates` | Internal carrier/method/store-city rate configuration | `200/201` | Bearer, `shipping:manage` | Mutations are audited; there is no shipping management UI. |
 
 ## Admin APIs
 

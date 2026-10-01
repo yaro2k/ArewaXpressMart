@@ -4,12 +4,12 @@ import type { CheckoutRepository } from '../src/modules/checkout/domain/Checkout
 
 const userId = '550e8400-e29b-41d4-a716-446655440000';
 const addressId = '660e8400-e29b-41d4-a716-446655440000';
-const checkout = { shippingAddressId: addressId };
+const checkout = { shippingAddressId: addressId, shippingSelections: [{ storeId: '770e8400-e29b-41d4-a716-446655440000', shippingRateId: '880e8400-e29b-41d4-a716-446655440000' }] };
 
 function repository(overrides: Partial<CheckoutRepository> = {}): CheckoutRepository {
   return {
     listAddresses: async () => [], createAddress: async () => ({ id: addressId }), findAddressOwner: async () => ({ userId }), updateAddress: async () => ({ id: addressId }), deleteAddress: async () => undefined,
-    quote: async () => ({ totalMinor: 1000 }), findOrderByIdempotencyKey: async () => null, placeOrder: async () => ({ id: 'order-1' }), ...overrides,
+    shippingOptions: async () => ({ groups: [] }), quote: async () => ({ totalMinor: 1000 }), findOrderByIdempotencyKey: async () => null, placeOrder: async () => ({ id: 'order-1' }), ...overrides,
   };
 }
 describe('CheckoutService', () => {

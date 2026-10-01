@@ -19,7 +19,7 @@ The database schema includes foundations for brands, categories, products, varia
 
 Database bootstrap is deterministic and repeatable: `npx prisma db seed` loads Nigerian geographic lookups, catalog categories/brands, and internal development shipping methods. Development marketplace fixtures are opt-in (`SEED_DEVELOPMENT_FIXTURES=true` with environment-supplied development passwords) and are refused in production. Catalog administration is exposed through permission-protected `/api/v1/admin/categories` and `/api/v1/admin/brands` APIs; no admin UI is included yet.
 
-The customer frontend is in `apps/frontend` and uses React + Vite. Run `npm install && npm run dev` there after copying `.env.example`; set `VITE_API_BASE_URL` to `/api/v1` on the running backend. Its current scope is authentication, email verification, product discovery, and cart management. Checkout, orders, payments, seller/admin screens, and other lifecycle views are intentionally deferred.
+The customer frontend is in `apps/frontend` and uses React + Vite. Run `npm install && npm run dev` there after copying `.env.example`; set `VITE_API_BASE_URL` to `/api/v1` on the running backend. Its current scope includes authentication, cart management, saved addresses, per-store shipping selection, checkout, payment initiation, and customer order views. Shipping configuration is API-only for administrators; no seller/admin shipping UI is included.
 
 ## Planned next work
 

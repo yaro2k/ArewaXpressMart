@@ -22,7 +22,7 @@ const brands = [
 async function seedReferenceData(): Promise<void> {
   await prisma.userStatus.createMany({ data: ['PENDING_VERIFICATION', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'].map((code) => ({ code })), skipDuplicates: true });
   await prisma.role.createMany({ data: [{ code: 'CUSTOMER', name: 'Customer' }, { code: 'SELLER', name: 'Seller' }, { code: 'ADMIN', name: 'Administrator' }], skipDuplicates: true });
-  const permissionCodes = ['user:read:any', 'user:manage', 'role:assign', 'seller:review', 'catalog:manage', 'product:moderate', 'order:read:any', 'order:manage:any', 'audit:read', 'invoice:read:any', 'invoice:issue', 'return:manage', 'refund:create', 'notification:manage', 'report:read', 'metrics:read'];
+  const permissionCodes = ['user:read:any', 'user:manage', 'role:assign', 'seller:review', 'catalog:manage', 'product:moderate', 'order:read:any', 'order:manage:any', 'audit:read', 'invoice:read:any', 'invoice:issue', 'return:manage', 'refund:create', 'notification:manage', 'report:read', 'metrics:read', 'shipping:manage'];
   await prisma.permission.createMany({ data: permissionCodes.map((code) => ({ code })), skipDuplicates: true });
   const admin = await prisma.role.findUniqueOrThrow({ where: { code: 'ADMIN' } });
   const adminPermissions = await prisma.permission.findMany({ where: { code: { in: permissionCodes } }, select: { id: true } });
@@ -79,6 +79,9 @@ async function seedDevelopmentFixtures(): Promise<void> {
   const variant = await prisma.productVariant.upsert({ where: { sku: 'DEV-BASKET-001' }, update: { productId: product.id, isActive: true }, create: { productId: product.id, sku: 'DEV-BASKET-001', isActive: true } });
   const existingPrice = await prisma.productVariantPrice.findFirst({ where: { productVariantId: variant.id, endsAt: null } }); if (!existingPrice) await prisma.productVariantPrice.create({ data: { productVariantId: variant.id, currency: 'NGN', amountMinor: 250000n } });
   await prisma.inventory.upsert({ where: { warehouseId_productVariantId: { warehouseId: warehouse.id, productVariantId: variant.id } }, update: {}, create: { warehouseId: warehouse.id, productVariantId: variant.id, onHandQty: 100 } });
+  // Development-only fixture: production rates are maintained through the protected shipping configuration API.
+  const kano = await prisma.city.findFirstOrThrow({ where: { name: 'Kano', stateProvince: { code: 'KN' } } }); const local = await prisma.shippingCarrier.findUniqueOrThrow({ where: { name: 'Arewa Local Delivery' } }); const standard = await prisma.shippingMethod.findUniqueOrThrow({ where: { carrierId_code: { carrierId: local.id, code: 'STANDARD' } } });
+  await prisma.shippingRate.upsert({ where: { storeId_shippingMethodId_cityId: { storeId: store.id, shippingMethodId: standard.id, cityId: kano.id } }, update: { amountMinor: 150000n, currency: 'NGN', isActive: true }, create: { storeId: store.id, shippingMethodId: standard.id, cityId: kano.id, amountMinor: 150000n, currency: 'NGN' } });
 }
 
 async function main(): Promise<void> { await seedReferenceData(); await seedDevelopmentFixtures(); }

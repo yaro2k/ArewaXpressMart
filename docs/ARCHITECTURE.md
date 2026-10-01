@@ -265,7 +265,7 @@ PaymentAttempt --< PaymentWebhookEvent
 Key invariants:
 
 - An `OrderItem` stores a product/variant snapshot, price, tax, discount, and seller at purchase time; historical orders must not change with catalog edits.
-- A single checkout transaction reserves inventory, calculates immutable order totals, creates the order and `PaymentAttempt`, and emits `OrderCreated`.
+- Checkout calculates immutable product and per-store shipping totals and creates the order transactionally. Current implementation does not reserve inventory at checkout; inventory reservation remains a separate fulfilment-time follow-up.
 - Payment confirmation uses conditional state transitions (`PENDING -> PAID`); duplicate webhooks or retries cannot double-charge, double-decrement stock, or create duplicate orders.
 - Connection pooling is managed for API and worker concurrency. Frequently filtered foreign keys and cursor fields are indexed; migrations are backward-compatible and deployed before dependent code.
 

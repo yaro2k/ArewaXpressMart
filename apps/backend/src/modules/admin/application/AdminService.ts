@@ -17,4 +17,13 @@ export class AdminService {
   updateSellerApplication(actorId: string, sellerId: string, status: string, reason?: string) { return this.repository.updateSellerApplication(actorId, sellerId, status, reason); }
   moderateProduct(actorId: string, productId: string, status: string, reason?: string) { return this.repository.moderateProduct(actorId, productId, status, reason); }
   listAuditLogs() { return this.repository.listAuditLogs(); }
+  listShippingCarriers() { return this.repository.listShippingCarriers(); }
+  createShippingCarrier(actorId: string, input: { name: string; trackingUrlTemplate?: string | null; isActive?: boolean }) { return this.repository.createShippingCarrier(actorId, input); }
+  updateShippingCarrier(actorId: string, id: string, input: { name?: string; trackingUrlTemplate?: string | null; isActive?: boolean }) { return this.repository.updateShippingCarrier(actorId, id, input); }
+  listShippingMethods() { return this.repository.listShippingMethods(); }
+  createShippingMethod(actorId: string, input: { carrierId: string; code: string; name: string; serviceLevel: string; isActive?: boolean }) { return this.repository.createShippingMethod(actorId, input); }
+  updateShippingMethod(actorId: string, id: string, input: { code?: string; name?: string; serviceLevel?: string; isActive?: boolean }) { return this.repository.updateShippingMethod(actorId, id, input); }
+  listShippingRates() { return this.repository.listShippingRates(); }
+  createShippingRate(actorId: string, input: { storeId: string; shippingMethodId: string; cityId: string; amountMinor: number; currency: string; isActive?: boolean }) { return this.repository.createShippingRate(actorId, input); }
+  updateShippingRate(actorId: string, id: string, input: { amountMinor?: number; currency?: string; isActive?: boolean }) { return this.repository.updateShippingRate(actorId, id, input); }
 }

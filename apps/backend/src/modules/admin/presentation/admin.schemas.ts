@@ -8,3 +8,10 @@ export const categoryCreateSchema = z.object({ name: z.string().trim().min(2).ma
 export const categoryUpdateSchema = categoryCreateSchema.partial().extend({ isActive: z.boolean().optional() }).strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one field.');
 export const brandCreateSchema = z.object({ name: z.string().trim().min(2).max(120), slug, description: z.string().trim().max(1000).nullable().optional() }).strict();
 export const brandUpdateSchema = brandCreateSchema.partial().strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one field.');
+const id = z.string().uuid(); const currency = z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/);
+export const shippingCarrierCreateSchema = z.object({ name: z.string().trim().min(2).max(160), trackingUrlTemplate: z.string().url().nullable().optional(), isActive: z.boolean().optional() }).strict();
+export const shippingCarrierUpdateSchema = shippingCarrierCreateSchema.partial().strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one field.');
+export const shippingMethodCreateSchema = z.object({ carrierId: id, code: z.string().trim().toUpperCase().min(2).max(64).regex(/^[A-Z0-9_-]+$/), name: z.string().trim().min(2).max(160), serviceLevel: z.string().trim().min(1).max(240), isActive: z.boolean().optional() }).strict();
+export const shippingMethodUpdateSchema = shippingMethodCreateSchema.omit({ carrierId: true }).partial().strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one field.');
+export const shippingRateCreateSchema = z.object({ storeId: id, shippingMethodId: id, cityId: id, amountMinor: z.number().int().nonnegative().max(2_000_000_000), currency, isActive: z.boolean().optional() }).strict();
+export const shippingRateUpdateSchema = shippingRateCreateSchema.pick({ amountMinor: true, currency: true, isActive: true }).partial().strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one field.');

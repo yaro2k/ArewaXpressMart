@@ -11,6 +11,8 @@ const addressFields = {
 
 export const addressCreateSchema = z.object(addressFields).strict();
 export const addressUpdateSchema = z.object({ recipientName: addressFields.recipientName.optional(), phoneE164: phoneE164.optional(), line1: addressFields.line1.optional(), line2: addressFields.line2, cityId: id.optional(), postalCode: addressFields.postalCode, isDefaultShipping: z.boolean().optional(), isDefaultBilling: z.boolean().optional() }).strict().refine((value) => Object.keys(value).length > 0, 'Provide at least one field.');
-export const checkoutSchema = z.object({ shippingAddressId: id, billingAddressId: id.optional() }).strict();
+const shippingSelectionSchema = z.object({ storeId: id, shippingRateId: id }).strict();
+export const shippingOptionsSchema = z.object({ shippingAddressId: id }).strict();
+export const checkoutSchema = z.object({ shippingAddressId: id, billingAddressId: id.optional(), shippingSelections: z.array(shippingSelectionSchema).min(1).max(100) }).strict();
 export const idempotencyKeySchema = z.string().trim().min(16).max(255);
 export const locationQuerySchema = z.object({ countryId: id.optional(), stateProvinceId: id.optional() }).strict();

@@ -3,7 +3,7 @@ import type { AuthService } from '../../identity/application/AuthService.js';
 import { requireAuthentication } from '../../../shared/presentation/auth.js';
 import { AppError } from '../../../shared/domain/AppError.js';
 import type { CheckoutService } from '../application/CheckoutService.js';
-import { addressCreateSchema, addressUpdateSchema, checkoutSchema, idempotencyKeySchema, locationQuerySchema } from './checkout.schemas.js';
+import { addressCreateSchema, addressUpdateSchema, checkoutSchema, idempotencyKeySchema, locationQuerySchema, shippingOptionsSchema } from './checkout.schemas.js';
 
 const asyncRoute = (handler: (req: Request, res: Response) => Promise<void>) => (req: Request, res: Response, next: NextFunction): void => { void handler(req, res).catch(next); };
 const requiredParam = (value: string | string[] | undefined): string => { if (typeof value !== 'string' || value.length === 0) throw new AppError(400, 'VALIDATION_ERROR', 'A route parameter is required.'); return value; };
@@ -27,6 +27,7 @@ export function createLocationRouter(checkoutService: CheckoutService): Router {
 
 export function createCheckoutRouter(authService: AuthService, checkoutService: CheckoutService): Router {
   const router = Router(); router.use(requireAuthentication(authService));
+  router.post('/shipping-options', asyncRoute(async (req, res) => { res.json({ data: await checkoutService.shippingOptions(req.principal!.userId, shippingOptionsSchema.parse(req.body).shippingAddressId) }); }));
   router.post('/quote', asyncRoute(async (req, res) => { res.json({ data: await checkoutService.quote(req.principal!.userId, checkoutSchema.parse(req.body)) }); }));
   router.post('/', asyncRoute(async (req, res) => {
     const idempotencyKey = req.header('idempotency-key');

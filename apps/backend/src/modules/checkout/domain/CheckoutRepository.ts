@@ -7,6 +7,7 @@ export interface CheckoutRepository {
   findAddressOwner(addressId: string): Promise<{ userId: string } | null>;
   updateAddress(addressId: string, input: Partial<AddressInput>): Promise<unknown>;
   deleteAddress(addressId: string): Promise<void>;
+  shippingOptions(userId: string, shippingAddressId: string): Promise<unknown>;
   quote(userId: string, input: CheckoutInput): Promise<unknown>;
   findOrderByIdempotencyKey(userId: string, idempotencyKey: string): Promise<unknown | null>;
   placeOrder(userId: string, input: CheckoutInput & { idempotencyKey: string }): Promise<unknown>;
@@ -23,4 +24,5 @@ export interface AddressInput {
   isDefaultBilling?: boolean;
 }
 
-export interface CheckoutInput { shippingAddressId: string; billingAddressId?: string; }
+export interface ShippingSelectionInput { storeId: string; shippingRateId: string; }
+export interface CheckoutInput { shippingAddressId: string; billingAddressId?: string; shippingSelections: ShippingSelectionInput[]; }

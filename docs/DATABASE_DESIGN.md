@@ -94,6 +94,8 @@ One cart has many cart items and a user can retain multiple named wishlists. Car
 | `shipment_item` | `shipment_id`, `order_item_id`, `quantity` | A shipment-to-order-item junction, supports partial shipments. |
 | `shipping_method` | `carrier_id`, `code`, `name`, `service_level`, `is_active` | Carrier service configuration. |
 | `shipping_carrier` | `name` (unique), `tracking_url_template` | Carrier reference. |
+| `shipping_rate` | `store_id`, `shipping_method_id`, `city_id`, `amount_minor`, `currency`, `is_active` | Configured exact-city price for one store fulfilment group; unique `(store_id, shipping_method_id, city_id)`. |
+| `order_shipping_selection` | `order_id`, `store_id`, method/carrier/service-level snapshots, `amount_minor`, `currency` | Immutable per-store customer shipping selection; unique `(order_id, store_id)`. |
 | `shipment_status` | `code` (unique) | Pending, packed, shipped, delivered, lost, etc. |
 | `shipment_status_history` | `shipment_id`, `status_id`, `occurred_at`, `location`, `details` | Carrier/warehouse tracking events. |
 | `payment` | `order_id`, `provider_id`, `provider_reference` (unique), `status_id`, `amount_minor`, `currency`, `idempotency_key`, `authorized_at`, `captured_at` | One attempted provider transaction; unique `(order_id, idempotency_key)`. |
@@ -112,7 +114,7 @@ One cart has many cart items and a user can retain multiple named wishlists. Car
 | `invoice_status` | `code` (unique) | Draft, issued, void, paid. |
 | `invoice_item` | `invoice_id`, `order_item_id` nullable, description, quantity, unit/line totals | Immutable invoice line snapshot. |
 
-An order belongs to one user and contains many order items. An item points to the store that must fulfill it; a shipment belongs to one order and its `shipment_item` rows determine exactly which portions are in that parcel. This supports marketplace multi-seller orders and partial fulfillment. An order can have several payment attempts but only confirmed paid amounts may advance its status. A payment has provider webhook events and can have multiple partial refunds. A return request belongs to an order/customer and its items cannot exceed delivered, non-returned quantities. One invoice documents one order and has many invoice lines.
+An order belongs to one user and contains many order items. An item points to the store that must fulfill it; checkout selects one configured city-eligible rate per represented store and sums those immutable selections into `orders.shipping_minor`. A shipment belongs to one order and its `shipment_item` rows determine exactly which portions are in that parcel; new shipping-aware orders link shipments to the selected store shipping method, while legacy orders remain valid. Rates are internal policies, not distance calculations or carrier promises. Shipping-refund policy is deferred.
 
 ## Relationship catalogue
 

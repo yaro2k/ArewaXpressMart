@@ -10,6 +10,7 @@ export class CheckoutService {
   createAddress(userId: string, input: AddressInput) { return this.repository.createAddress(userId, input); }
   async updateAddress(userId: string, addressId: string, input: Partial<AddressInput>) { await this.assertAddressOwner(userId, addressId); return this.repository.updateAddress(addressId, input); }
   async deleteAddress(userId: string, addressId: string) { await this.assertAddressOwner(userId, addressId); return this.repository.deleteAddress(addressId); }
+  shippingOptions(userId: string, shippingAddressId: string) { return this.repository.shippingOptions(userId, shippingAddressId); }
   quote(userId: string, input: CheckoutInput) { return this.repository.quote(userId, input); }
   async checkout(userId: string, input: CheckoutInput, idempotencyKey: string) {
     const existing = await this.repository.findOrderByIdempotencyKey(userId, idempotencyKey);

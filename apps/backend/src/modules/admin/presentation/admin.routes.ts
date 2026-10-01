@@ -3,7 +3,7 @@ import type { AuthService } from '../../identity/application/AuthService.js';
 import { requireAuthentication, requirePermission } from '../../../shared/presentation/auth.js';
 import { AppError } from '../../../shared/domain/AppError.js';
 import type { AdminService } from '../application/AdminService.js';
-import { brandCreateSchema, brandUpdateSchema, categoryCreateSchema, categoryUpdateSchema, productModerationSchema, sellerReviewSchema, userRolesSchema, userStatusSchema } from './admin.schemas.js';
+import { brandCreateSchema, brandUpdateSchema, categoryCreateSchema, categoryUpdateSchema, productModerationSchema, sellerReviewSchema, shippingCarrierCreateSchema, shippingCarrierUpdateSchema, shippingMethodCreateSchema, shippingMethodUpdateSchema, shippingRateCreateSchema, shippingRateUpdateSchema, userRolesSchema, userStatusSchema } from './admin.schemas.js';
 const asyncRoute = (handler: (req: Request, res: Response) => Promise<void>) => (req: Request, res: Response, next: NextFunction): void => { void handler(req, res).catch(next); };
 const param = (value: string | string[] | undefined): string => { if (typeof value !== 'string' || !value) throw new AppError(400, 'VALIDATION_ERROR', 'A route parameter is required.'); return value; };
 export function createAdminRouter(auth: AuthService, service: AdminService): Router {
@@ -23,5 +23,14 @@ export function createAdminRouter(auth: AuthService, service: AdminService): Rou
   router.patch('/seller-applications/:sellerId', requirePermission('seller:review'), asyncRoute(async (req, res) => { const body = sellerReviewSchema.parse(req.body); res.json({ data: await service.updateSellerApplication(req.principal!.userId, param(req.params.sellerId), body.verificationStatus, body.reason) }); }));
   router.patch('/products/:productId/status', requirePermission('product:moderate'), asyncRoute(async (req, res) => { const body = productModerationSchema.parse(req.body); res.json({ data: await service.moderateProduct(req.principal!.userId, param(req.params.productId), body.status, body.reason) }); }));
   router.get('/audit-logs', requirePermission('audit:read'), asyncRoute(async (_req, res) => { res.json({ data: await service.listAuditLogs() }); }));
+  router.get('/shipping/carriers', requirePermission('shipping:manage'), asyncRoute(async (_req, res) => { res.json({ data: await service.listShippingCarriers() }); }));
+  router.post('/shipping/carriers', requirePermission('shipping:manage'), asyncRoute(async (req, res) => { res.status(201).json({ data: await service.createShippingCarrier(req.principal!.userId, shippingCarrierCreateSchema.parse(req.body)) }); }));
+  router.patch('/shipping/carriers/:carrierId', requirePermission('shipping:manage'), asyncRoute(async (req, res) => { res.json({ data: await service.updateShippingCarrier(req.principal!.userId, param(req.params.carrierId), shippingCarrierUpdateSchema.parse(req.body)) }); }));
+  router.get('/shipping/methods', requirePermission('shipping:manage'), asyncRoute(async (_req, res) => { res.json({ data: await service.listShippingMethods() }); }));
+  router.post('/shipping/methods', requirePermission('shipping:manage'), asyncRoute(async (req, res) => { res.status(201).json({ data: await service.createShippingMethod(req.principal!.userId, shippingMethodCreateSchema.parse(req.body)) }); }));
+  router.patch('/shipping/methods/:methodId', requirePermission('shipping:manage'), asyncRoute(async (req, res) => { res.json({ data: await service.updateShippingMethod(req.principal!.userId, param(req.params.methodId), shippingMethodUpdateSchema.parse(req.body)) }); }));
+  router.get('/shipping/rates', requirePermission('shipping:manage'), asyncRoute(async (_req, res) => { res.json({ data: await service.listShippingRates() }); }));
+  router.post('/shipping/rates', requirePermission('shipping:manage'), asyncRoute(async (req, res) => { res.status(201).json({ data: await service.createShippingRate(req.principal!.userId, shippingRateCreateSchema.parse(req.body)) }); }));
+  router.patch('/shipping/rates/:rateId', requirePermission('shipping:manage'), asyncRoute(async (req, res) => { res.json({ data: await service.updateShippingRate(req.principal!.userId, param(req.params.rateId), shippingRateUpdateSchema.parse(req.body)) }); }));
   return router;
 }
