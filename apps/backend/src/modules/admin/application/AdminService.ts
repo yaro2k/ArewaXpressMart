@@ -1,5 +1,5 @@
 import { AppError } from '../../../shared/domain/AppError.js';
-import type { AdminRepository } from '../domain/AdminRepository.js';
+import type { AdminRepository, CouponAdminInput } from '../domain/AdminRepository.js';
 export class AdminService {
   constructor(private readonly repository: AdminRepository) {}
   listCategories() { return this.repository.listCategories(); }
@@ -26,4 +26,7 @@ export class AdminService {
   listShippingRates() { return this.repository.listShippingRates(); }
   createShippingRate(actorId: string, input: { storeId: string; shippingMethodId: string; cityId: string; amountMinor: number; currency: string; isActive?: boolean }) { return this.repository.createShippingRate(actorId, input); }
   updateShippingRate(actorId: string, id: string, input: { amountMinor?: number; currency?: string; isActive?: boolean }) { return this.repository.updateShippingRate(actorId, id, input); }
+  listCoupons() { return this.repository.listCoupons(); }
+  createCoupon(actorId: string, input: CouponAdminInput) { return this.repository.createCoupon(actorId, input); }
+  updateCoupon(actorId: string, id: string, input: Partial<CouponAdminInput>) { return this.repository.updateCoupon(actorId, id, input); }
 }

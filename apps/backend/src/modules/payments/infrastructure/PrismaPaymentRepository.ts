@@ -49,7 +49,7 @@ export class PrismaPaymentRepository implements PaymentRepository {
       }
       const updated = await tx.payment.update({ where: { id: payment.id }, data: { statusId: status.id, authorizedAt: input.status === 'SUCCEEDED' ? new Date() : undefined, capturedAt: input.status === 'SUCCEEDED' ? new Date() : undefined }, include: paymentInclude });
       await tx.paymentWebhookEvent.create({ data: { providerId: providerRecord.id, paymentId: payment.id, providerEventId: input.eventId, eventType: input.eventType, payload: input.payload as Prisma.InputJsonValue, processedAt: new Date() } });
-      if (input.status === 'SUCCEEDED' && payment.order.status.code === 'PENDING_PAYMENT') { const orderStatus = await tx.orderStatus.findUniqueOrThrow({ where: { code: 'PAID' } }); await tx.order.update({ where: { id: payment.orderId }, data: { statusId: orderStatus.id } }); }
+      if (input.status === 'SUCCEEDED') { await tx.couponRedemption.updateMany({ where: { orderId: payment.orderId, status: 'RESERVED' }, data: { status: 'REDEEMED', redeemedAt: new Date() } }); if (payment.order.status.code === 'PENDING_PAYMENT') { const orderStatus = await tx.orderStatus.findUniqueOrThrow({ where: { code: 'PAID' } }); await tx.order.update({ where: { id: payment.orderId }, data: { statusId: orderStatus.id } }); } }
       return mapPayment(updated);
     });
   }

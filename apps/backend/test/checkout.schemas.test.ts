@@ -6,9 +6,10 @@ describe('checkout request validation', () => {
   it('accepts a saved address and checkout address references', () => {
     expect(addressCreateSchema.parse({ recipientName: 'Amina Yusuf', phoneE164: '+2348012345678', line1: '12 Market Road', cityId }).cityId).toBe(cityId);
     expect(checkoutSchema.parse({ shippingAddressId: cityId, shippingSelections: [{ storeId: cityId, shippingRateId: cityId }] }).shippingSelections).toHaveLength(1);
+    expect(checkoutSchema.parse({ shippingAddressId: cityId, shippingSelections: [{ storeId: cityId, shippingRateId: cityId }], couponCode: ' SAVE10 ' }).couponCode).toBe('SAVE10');
   });
   it('rejects invalid delivery details and short idempotency keys', () => {
     expect(() => addressCreateSchema.parse({ recipientName: 'Amina', phoneE164: '08012345678', line1: 'x', cityId })).toThrow();
-    expect(() => checkoutSchema.parse({ shippingAddressId: cityId, shippingSelections: [] })).toThrow(); expect(() => idempotencyKeySchema.parse('short-key')).toThrow();
+    expect(() => checkoutSchema.parse({ shippingAddressId: cityId, shippingSelections: [], discountMinor: 10 })).toThrow(); expect(() => idempotencyKeySchema.parse('short-key')).toThrow();
   });
 });

@@ -15,7 +15,7 @@ This is the logical 3NF design for ArewaXpressMart. PostgreSQL is the source of 
 
 The repeatable seed loads Nigeria (all 36 states plus the Federal Capital Territory and representative development cities), an initial SME category hierarchy, development brands, and internal shipping carriers/methods. It does not provide global geography or real-time carrier pricing. Optional marketplace fixtures require explicit non-production environment variables.
 
-Migration `20260903000000_add_integrity_constraints` adds forward-only PostgreSQL checks for non-negative monetary values, positive quantities, non-negative inventory counters, `reserved <= on_hand`, valid positions, and positive variant weights. Wishlist, coupon, and review constraints are intentionally absent because those models are not present in the current schema.
+Migration `20260903000000_add_integrity_constraints` adds forward-only PostgreSQL checks for non-negative monetary values, positive quantities, non-negative inventory counters, `reserved <= on_hand`, valid positions, and positive variant weights. Coupon configuration and redemption lifecycle checks are added by `20261001000000_add_coupons_and_redemptions`.
 
 ## Identity, roles, and addresses
 
@@ -70,15 +70,14 @@ A seller profile belongs to exactly one user; a seller may operate stores. A sto
 | `cart_item` | `cart_id`, `product_variant_id`, `quantity`, `unit_price_minor` | Cart line; unique `(cart_id, product_variant_id)`. |
 | `wishlist` | `user_id`, `name`, `is_default` | A named user wishlist. |
 | `wishlist_item` | `wishlist_id`, `product_id` | Wishlist-to-product junction; unique pair. |
-| `coupon` | `code` (unique), `discount_type_id`, `amount_minor` nullable, `percent_bps` nullable, `currency` nullable, `minimum_order_minor`, `starts_at`, `ends_at`, `max_redemptions`, `per_user_limit`, `is_active` | Promotion definition. |
-| `coupon_discount_type` | `code` (unique) | Fixed amount or percentage. |
-| `coupon_product` | `coupon_id`, `product_id` | Optional product eligibility junction. |
-| `coupon_category` | `coupon_id`, `category_id` | Optional category eligibility junction. |
-| `coupon_redemption` | `coupon_id`, `user_id`, `order_id`, `discount_minor`, `redeemed_at` | Immutable successful redemption; unique `(coupon_id, order_id)`. |
+| `Coupon` | Canonical unique code, fixed-minor/percentage configuration, optional cap/limits/window, currency, active state. | Marketplace-funded promotion definition. |
+| `CouponProduct` | `coupon_id`, `product_id` | Optional direct product eligibility junction. |
+| `CouponCategory` | `coupon_id`, `category_id` | Optional category eligibility junction. |
+| `CouponRedemption` | Coupon/order/user, immutable discount configuration/amount snapshot, `RESERVED`/`REDEEMED`/`RELEASED`. | Exactly one optional coupon per order. |
 | `review` | `user_id`, `product_id`, `order_item_id` nullable unique, `rating`, `title`, `body`, `status_id` | Product feedback; `order_item_id` supports verified purchase. |
 | `review_status` | `code` (unique) | Pending, published, rejected. |
 
-One cart has many cart items and a user can retain multiple named wishlists. Cart price is advisory and revalidated at checkout. Coupons use junctions instead of comma-separated eligible IDs. A coupon redemption links the final discount to a completed order and user, enabling limit enforcement. Reviews target products; an optional unique order item proves a specific purchased line can be reviewed only once.
+One cart has many cart items and a user can retain multiple named wishlists. Cart price is advisory and revalidated at checkout. Coupons use junctions instead of comma-separated eligible IDs; an empty target set means marketplace-wide merchandise eligibility, while product and category targets are combined with OR. Coupon redemptions snapshot the applied discount at order creation, reserve capacity until payment/cancellation, and enforce one coupon per order. Reviews target products; an optional unique order item proves a specific purchased line can be reviewed only once.
 
 ## Orders, fulfillment, returns, refunds, and invoices
 
@@ -266,7 +265,7 @@ erDiagram
 ## Integrity, indexes, and implementation notes
 
 - Foreign keys are `RESTRICT` for financial history and `CASCADE` only for pure join rows such as `product_category`; use `SET NULL` for optional historical catalog references.
-- Check constraints enforce non-negative quantities/totals, `reserved_qty <= on_hand_qty`, ratings `1..5`, valid coupon amount/percentage shape, `starts_at < ends_at`, and a cart's one-owner rule. Cart and merge availability checks do not reserve inventory; checkout reservation remains separate follow-up work.
+- Check constraints enforce non-negative quantities/totals, `reserved_qty <= on_hand_qty`, ratings `1..5`, valid coupon amount/percentage shape, coupon lifecycle timestamps, `starts_at < ends_at`, and a cart's one-owner rule. Cart and merge availability checks do not reserve inventory; checkout reservation remains separate follow-up work.
 - Use partial unique indexes for one default address per user/type and one current variant price per currency. Anonymous cart token hashes use a nullable unique index; expiry uses a schema-compatible `expires_at` index.
 - Index all FK columns. Add composite indexes for `product(store_id, status_id)`, `product_category(category_id, product_id)`, `inventory(product_variant_id, warehouse_id)`, `order(user_id, created_at desc)`, `order(status_id, created_at)`, `shipment(tracking_number)`, and `payment(provider_id, provider_reference)`.
 - Use transactions with row locking or conditional updates for inventory reservations, coupon redemption limits, payment transitions, and return quantities. The service layer must still perform authorization and workflow validation; constraints protect against concurrent or faulty callers.

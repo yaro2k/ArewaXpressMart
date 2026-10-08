@@ -88,7 +88,7 @@ All collections accept bounded `limit` (1–100), `cursor`, and documented filte
 | `GET /wishlists/:wishlistId/items` | pagination | `200 {data:[productCard],meta}` | Bearer, owner | `403`, `404`. |
 | `POST /wishlists/:wishlistId/items` | `{productId}` | `201 {data:wishlistItem}` | Bearer, owner | Active product; unique pair. `404`, `409 DUPLICATE_RESOURCE`. |
 | `DELETE /wishlists/:wishlistId/items/:productId` | — | `204` | Bearer, owner | `403`, `404`. |
-| `POST /coupons/validate` | `{code,cartId?}` | `200 {data:{coupon,estimatedDiscountMinor}}` | Public/Bearer | Normalized code; evaluates dates, scope, thresholds. `404`, `422 COUPON_INELIGIBLE`. |
+| No standalone coupon validation endpoint | — | — | — | Coupons are evaluated only by authenticated checkout quote/order requests; no client cart ID or client-calculated amount is accepted. |
 | `POST /products/:productId/reviews` | `{rating,title?,body?}` | `201 {data:review}` | Bearer, verified buyer if configured | Rating 1–5; length limits; one review per eligible line. `403`, `409 DUPLICATE_RESOURCE`, `422 PAYMENT_NOT_SETTLED`. |
 | `PATCH /reviews/:reviewId` | `{rating?,title?,body?}` | `200 {data:review}` | Bearer, review author | Only own pending/published review subject to policy. `403`, `404`, `409 INVALID_STATE`. |
 | `DELETE /reviews/:reviewId` | — | `204` | Bearer, review author or `review:moderate` | `403`, `404`. |
@@ -102,8 +102,8 @@ Customer post-purchase reads are available through `GET /orders`, `GET /orders/:
 | Method & endpoint | Request | Success response | Auth / authorization | Validation and possible errors |
 |---|---|---|---|---|
 | `POST /checkout/shipping-options` | `{shippingAddressId}` | `200 {data:{currency,shippingAddress,groups:[{store,options}]}}` | Bearer, self | Resolves the principal's cart and an owned address. Each option is an active configured store/city rate. `422 EMPTY_CART`, `SHIPPING_UNAVAILABLE`. |
-| `POST /checkout/quote` | `{shippingAddressId,billingAddressId?,shippingSelections:[{storeId,shippingRateId}]}` | `200 {data:{lines,shippingSelections,totals}}` | Bearer, self | Exactly one active rate for every cart store; server recalculates prices and shipping. `404`, `422 SHIPPING_SELECTION_REQUIRED`, `INVALID_SHIPPING_SELECTION`, `SHIPPING_CURRENCY_MISMATCH`. |
-| `POST /checkout` | Same quote payload + `Idempotency-Key` | `201 {data:order}` | Bearer, self | Revalidates current configuration, snapshots each store selection, and creates one idempotent order. `409 CHECKOUT_CONFLICT`; it does not reserve inventory at checkout. |
+| `POST /checkout/quote` | `{shippingAddressId,billingAddressId?,shippingSelections:[{storeId,shippingRateId}],couponCode?}` | `200 {data:{coupon?,lines,shippingSelections,subtotalMinor,discountMinor,shippingMinor,taxMinor,totalMinor}}` | Bearer, self | Exactly one active rate for every cart store; server recalculates prices, coupon and shipping. Coupon failures use generic `422 COUPON_INELIGIBLE`. |
+| `POST /checkout` | Same quote payload + `Idempotency-Key` | `201 {data:order}` | Bearer, self | Revalidates current configuration, creates a reserved coupon redemption where applicable, snapshots each store selection, and creates one idempotent order. `409 CHECKOUT_CONFLICT`; it does not reserve inventory at checkout. |
 | `GET /orders` | `status?,cursor?,limit?` | `200 {data:[orderSummary],meta}` | Bearer, self | Allow-listed status. |
 | `GET /orders/:orderId` | — | `200 {data:orderDetail}` | Bearer, order owner or `order:read:any` | `403`, `404`. |
 | `POST /orders/:orderId/cancel` | `{reason?}` | `200 {data:order}` | Bearer, order owner or `order:manage:any` | Only cancellable state and unshipped quantities. `409 INVALID_STATE`; refund may be pending. |

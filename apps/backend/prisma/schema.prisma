@@ -32,6 +32,7 @@ model User {
   carts               Cart[]
   addresses           Address[]
   orders              Order[]
+  couponRedemptions   CouponRedemption[]
   returnRequests      ReturnRequest[]
   orderStatusChanges  OrderStatusHistory[]
   notifications       Notification[]
@@ -211,6 +212,7 @@ model Category {
   parent           Category?         @relation("CategoryTree", fields: [parentCategoryId], references: [id], onDelete: Restrict)
   children         Category[]        @relation("CategoryTree")
   products         ProductCategory[]
+  couponTargets    CouponCategory[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -224,22 +226,23 @@ model ProductStatus {
 }
 
 model Product {
-  id          String            @id @default(uuid()) @db.Uuid
-  storeId     String            @db.Uuid
-  brandId     String?           @db.Uuid
-  name        String
-  slug        String            @unique
-  description String
-  statusId    String            @db.Uuid
-  store       Store             @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  brand       Brand?            @relation(fields: [brandId], references: [id], onDelete: Restrict)
-  status      ProductStatus     @relation(fields: [statusId], references: [id], onDelete: Restrict)
-  categories  ProductCategory[]
-  options     ProductOption[]
-  variants    ProductVariant[]
-  images      ProductImage[]    @relation("ProductImages")
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id            String            @id @default(uuid()) @db.Uuid
+  storeId       String            @db.Uuid
+  brandId       String?           @db.Uuid
+  name          String
+  slug          String            @unique
+  description   String
+  statusId      String            @db.Uuid
+  store         Store             @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  brand         Brand?            @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  status        ProductStatus     @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  categories    ProductCategory[]
+  options       ProductOption[]
+  variants      ProductVariant[]
+  images        ProductImage[]    @relation("ProductImages")
+  couponTargets CouponProduct[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
   @@index([storeId, statusId])
   @@index([brandId])
@@ -459,6 +462,7 @@ model Order {
   statusHistory      OrderStatusHistory[]
   shipments          Shipment[]
   shippingSelections OrderShippingSelection[]
+  couponRedemption   CouponRedemption?
   placedAt           DateTime                 @default(now())
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
@@ -830,6 +834,7 @@ model InvoiceItem {
   sku            String?
   quantity       Int
   unitPriceMinor BigInt
+  discountMinor  BigInt     @default(0)
   lineTotalMinor BigInt
   currency       String     @db.Char(3)
   invoice        Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
@@ -837,6 +842,85 @@ model InvoiceItem {
   createdAt      DateTime   @default(now())
 
   @@index([orderItemId])
+}
+
+model Coupon {
+  id                           String             @id @default(uuid()) @db.Uuid
+  code                         String             @unique
+  discountType                 CouponDiscountType
+  percentageBps                Int?
+  fixedDiscountMinor           BigInt?
+  maximumDiscountMinor         BigInt?
+  currency                     String             @db.Char(3)
+  minimumEligibleSubtotalMinor BigInt?
+  maximumRedemptions           Int?
+  maximumRedemptionsPerUser    Int?
+  isActive                     Boolean            @default(true)
+  startsAt                     DateTime?
+  endsAt                       DateTime?
+  productTargets               CouponProduct[]
+  categoryTargets              CouponCategory[]
+  redemptions                  CouponRedemption[]
+  createdAt                    DateTime           @default(now())
+  updatedAt                    DateTime           @updatedAt
+
+  @@index([isActive, startsAt, endsAt])
+}
+
+enum CouponDiscountType {
+  PERCENTAGE
+  FIXED_MINOR
+}
+
+enum CouponRedemptionStatus {
+  RESERVED
+  REDEEMED
+  RELEASED
+}
+
+model CouponProduct {
+  couponId  String  @db.Uuid
+  productId String  @db.Uuid
+  coupon    Coupon  @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@id([couponId, productId])
+  @@index([productId])
+}
+
+model CouponCategory {
+  couponId   String   @db.Uuid
+  categoryId String   @db.Uuid
+  coupon     Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([couponId, categoryId])
+  @@index([categoryId])
+}
+
+model CouponRedemption {
+  id                   String                 @id @default(uuid()) @db.Uuid
+  couponId             String                 @db.Uuid
+  userId               String                 @db.Uuid
+  orderId              String                 @unique @db.Uuid
+  status               CouponRedemptionStatus @default(RESERVED)
+  couponCode           String
+  discountType         CouponDiscountType
+  percentageBps        Int?
+  fixedDiscountMinor   BigInt?
+  maximumDiscountMinor BigInt?
+  discountMinor        BigInt
+  currency             String                 @db.Char(3)
+  reservedAt           DateTime               @default(now())
+  redeemedAt           DateTime?
+  releasedAt           DateTime?
+  coupon               Coupon                 @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  user                 User                   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  order                Order                  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([couponId, status])
+  @@index([couponId, userId, status])
+  @@index([userId, reservedAt])
 }
 
 model NotificationChannel {

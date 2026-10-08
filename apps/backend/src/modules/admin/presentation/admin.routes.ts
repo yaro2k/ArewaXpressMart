@@ -3,7 +3,7 @@ import type { AuthService } from '../../identity/application/AuthService.js';
 import { requireAuthentication, requirePermission } from '../../../shared/presentation/auth.js';
 import { AppError } from '../../../shared/domain/AppError.js';
 import type { AdminService } from '../application/AdminService.js';
-import { brandCreateSchema, brandUpdateSchema, categoryCreateSchema, categoryUpdateSchema, productModerationSchema, sellerReviewSchema, shippingCarrierCreateSchema, shippingCarrierUpdateSchema, shippingMethodCreateSchema, shippingMethodUpdateSchema, shippingRateCreateSchema, shippingRateUpdateSchema, userRolesSchema, userStatusSchema } from './admin.schemas.js';
+import { brandCreateSchema, brandUpdateSchema, categoryCreateSchema, categoryUpdateSchema, couponCreateSchema, couponUpdateSchema, productModerationSchema, sellerReviewSchema, shippingCarrierCreateSchema, shippingCarrierUpdateSchema, shippingMethodCreateSchema, shippingMethodUpdateSchema, shippingRateCreateSchema, shippingRateUpdateSchema, userRolesSchema, userStatusSchema } from './admin.schemas.js';
 const asyncRoute = (handler: (req: Request, res: Response) => Promise<void>) => (req: Request, res: Response, next: NextFunction): void => { void handler(req, res).catch(next); };
 const param = (value: string | string[] | undefined): string => { if (typeof value !== 'string' || !value) throw new AppError(400, 'VALIDATION_ERROR', 'A route parameter is required.'); return value; };
 export function createAdminRouter(auth: AuthService, service: AdminService): Router {
@@ -32,5 +32,8 @@ export function createAdminRouter(auth: AuthService, service: AdminService): Rou
   router.get('/shipping/rates', requirePermission('shipping:manage'), asyncRoute(async (_req, res) => { res.json({ data: await service.listShippingRates() }); }));
   router.post('/shipping/rates', requirePermission('shipping:manage'), asyncRoute(async (req, res) => { res.status(201).json({ data: await service.createShippingRate(req.principal!.userId, shippingRateCreateSchema.parse(req.body)) }); }));
   router.patch('/shipping/rates/:rateId', requirePermission('shipping:manage'), asyncRoute(async (req, res) => { res.json({ data: await service.updateShippingRate(req.principal!.userId, param(req.params.rateId), shippingRateUpdateSchema.parse(req.body)) }); }));
+  router.get('/coupons', requirePermission('coupon:manage'), asyncRoute(async (_req, res) => { res.json({ data: await service.listCoupons() }); }));
+  router.post('/coupons', requirePermission('coupon:manage'), asyncRoute(async (req, res) => { res.status(201).json({ data: await service.createCoupon(req.principal!.userId, couponCreateSchema.parse(req.body)) }); }));
+  router.patch('/coupons/:couponId', requirePermission('coupon:manage'), asyncRoute(async (req, res) => { res.json({ data: await service.updateCoupon(req.principal!.userId, param(req.params.couponId), couponUpdateSchema.parse(req.body)) }); }));
   return router;
 }

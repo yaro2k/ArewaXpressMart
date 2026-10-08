@@ -22,7 +22,7 @@ const brands = [
 async function seedReferenceData(): Promise<void> {
   await prisma.userStatus.createMany({ data: ['PENDING_VERIFICATION', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED'].map((code) => ({ code })), skipDuplicates: true });
   await prisma.role.createMany({ data: [{ code: 'CUSTOMER', name: 'Customer' }, { code: 'SELLER', name: 'Seller' }, { code: 'ADMIN', name: 'Administrator' }], skipDuplicates: true });
-  const permissionCodes = ['user:read:any', 'user:manage', 'role:assign', 'seller:review', 'catalog:manage', 'product:moderate', 'order:read:any', 'order:manage:any', 'audit:read', 'invoice:read:any', 'invoice:issue', 'return:manage', 'refund:create', 'notification:manage', 'report:read', 'metrics:read', 'shipping:manage'];
+  const permissionCodes = ['user:read:any', 'user:manage', 'role:assign', 'seller:review', 'catalog:manage', 'product:moderate', 'order:read:any', 'order:manage:any', 'audit:read', 'invoice:read:any', 'invoice:issue', 'return:manage', 'refund:create', 'notification:manage', 'report:read', 'metrics:read', 'shipping:manage', 'coupon:manage'];
   await prisma.permission.createMany({ data: permissionCodes.map((code) => ({ code })), skipDuplicates: true });
   const admin = await prisma.role.findUniqueOrThrow({ where: { code: 'ADMIN' } });
   const adminPermissions = await prisma.permission.findMany({ where: { code: { in: permissionCodes } }, select: { id: true } });

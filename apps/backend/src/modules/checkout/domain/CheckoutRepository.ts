@@ -25,4 +25,4 @@ export interface AddressInput {
 }
 
 export interface ShippingSelectionInput { storeId: string; shippingRateId: string; }
-export interface CheckoutInput { shippingAddressId: string; billingAddressId?: string; shippingSelections: ShippingSelectionInput[]; }
+export interface CheckoutInput { shippingAddressId: string; billingAddressId?: string; shippingSelections: ShippingSelectionInput[]; couponCode?: string; }

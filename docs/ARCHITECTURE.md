@@ -1,5 +1,9 @@
 # ArewaXpressMart Architecture
 
+## Coupons and redemption
+
+Checkout evaluates marketplace-funded coupons from current server-side catalog data, then discounts eligible merchandise only. It never changes per-store shipping or tax. Integer proportional allocation uses largest remainder, with immutable product-variant IDs as the tie-breaker; the allocation is persisted on order and invoice item snapshots. A checkout creates a `RESERVED` coupon redemption transactionally; a paid webhook marks it `REDEEMED` and an unpaid cancellation marks it `RELEASED`. Limits count reserved and redeemed records. No expiry worker exists, so an abandoned unpaid order can retain its reservation until cancellation. Store-funded promotions, stacking, shipping discounts, and automatic reservation expiry are deferred. The existing inventory-reservation discrepancy is unchanged and remains deferred.
+
 ## Runtime entry point
 
 The authoritative application is the TypeScript/Prisma backend. Run `npm run dev` from `apps/backend` for development, or `npm run build && npm start` for the compiled server. Archived prototype assets are not the production frontend and are not served by the API.

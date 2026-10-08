@@ -23,4 +23,9 @@ export interface AdminRepository {
   listShippingRates(): Promise<unknown[]>;
   createShippingRate(actorId: string, input: { storeId: string; shippingMethodId: string; cityId: string; amountMinor: number; currency: string; isActive?: boolean }): Promise<unknown>;
   updateShippingRate(actorId: string, rateId: string, input: { amountMinor?: number; currency?: string; isActive?: boolean }): Promise<unknown>;
+  listCoupons(): Promise<unknown[]>;
+  createCoupon(actorId: string, input: CouponAdminInput): Promise<unknown>;
+  updateCoupon(actorId: string, couponId: string, input: Partial<CouponAdminInput>): Promise<unknown>;
 }
+
+export interface CouponAdminInput { code: string; discountType: 'PERCENTAGE' | 'FIXED_MINOR'; percentageBps?: number; fixedDiscountMinor?: number; maximumDiscountMinor?: number | null; currency: string; minimumEligibleSubtotalMinor?: number | null; maximumRedemptions?: number | null; maximumRedemptionsPerUser?: number | null; isActive?: boolean; startsAt?: Date | null; endsAt?: Date | null; productIds?: string[]; categoryIds?: string[]; }
